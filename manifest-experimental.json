@@ -3,10 +3,22 @@
   "description": "Lightweight Linux server health tracker: CPU, memory, storage, mounts, temperatures, services and listening ports. CLI (sht) plus an optional daemon and web dashboard. Zero dependencies.",
   "channel": "experimental",
   "homepage": "https://github.com/ReiyxKee/Server-Health-Tracker#readme",
-  "latest": "1.0.0",
-  "latestExperimental": "1.0.0",
-  "updated": "2026-11-20T10:02:18.640Z",
+  "latest": "1.1.0",
+  "latestExperimental": "1.1.0",
+  "updated": "2026-11-20T11:28:27.844Z",
   "versions": [
+    {
+      "version": "1.1.0",
+      "tag": "v1.1.0",
+      "channel": "stable",
+      "date": "2026-11-20T11:28:27.844Z",
+      "npm": "server-health-tracker@1.1.0",
+      "node": ">=18.15",
+      "url": "https://github.com/ReiyxKee/Server-Health-Tracker/releases/download/v1.1.0/server-health-tracker-1.1.0.tgz",
+      "sha256": "da2579344571d83b32883b078754de8b0f09e2e0a2573aa528cfe454a4f69f4e",
+      "size": 59549,
+      "changelog": "- - user credential for edit. Pins are now editable thru web"
+    },
     {
       "version": "1.0.0",
       "tag": "v1.0.0",

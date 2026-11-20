@@ -1,6 +1,6 @@
 {
   "name": "server-health-tracker",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Lightweight Linux server health tracker: CPU, memory, storage, mounts, temperatures, services and listening ports. CLI (sht) plus an optional daemon and web dashboard. Zero dependencies.",
   "bin": {
     "sht": "bin/sht.js"
