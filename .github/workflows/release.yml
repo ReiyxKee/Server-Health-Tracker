@@ -38,10 +38,11 @@ jobs:
         with:
           fetch-depth: 0 # full history: the changelog lists the commits since the previous tag
 
+      # No registry-url here: setup-node would write an .npmrc with an (empty) token that can
+      # keep npm from using trusted publishing. Auth is set up in the publish step instead.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
 
       - name: Version from tag
         run: |
@@ -93,18 +94,13 @@ jobs:
             echo '```'
             echo "sha256 \`$(sha256sum "$TGZ" | cut -d' ' -f1)\`"
           } > release.md
-          gh release create "$GITHUB_REF_NAME" "$TGZ" --title "sht ${VERSION}" --notes-file release.md \
-            $([ "$CHANNEL" = experimental ] && echo --prerelease)
-
-      # Publishing is opt-in: set the repository variable NPM_PUBLISH=true (trusted publishing, no token)
-      # or add an NPM_TOKEN secret. Without either, this step is skipped and only GitHub gets the release.
-      - name: Publish to npm
-        if: vars.NPM_PUBLISH == 'true' || env.NPM_TOKEN != ''
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          npm install -g npm@latest   # trusted publishing (OIDC) needs npm >= 11.5.1
-          npm publish "$TGZ" --access public --provenance --tag "$DIST_TAG"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "release exists (re-run): replacing the asset"
+            gh release upload "$GITHUB_REF_NAME" "$TGZ" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$TGZ" --title "sht ${VERSION}" --notes-file release.md \
+              $([ "$CHANNEL" = experimental ] && echo --prerelease)
+          fi
 
       - name: Update the channel manifest(s) on the default branch
         run: |
@@ -122,3 +118,26 @@ jobs:
           git add manifest.json manifest-experimental.json package.json
           git commit -m "manifest: ${GITHUB_REF_NAME} (${CHANNEL})" || { echo "manifest unchanged"; exit 0; }
           git push origin "HEAD:$DEFAULT_BRANCH"
+
+      # Publishing is opt-in and runs last, so an npm problem never blocks the GitHub release or manifests.
+      # Enable it with the repository variable NPM_PUBLISH=true (trusted publishing, no token)
+      # or with an NPM_TOKEN secret. Without either, this step is skipped.
+      - name: Publish to npm
+        if: vars.NPM_PUBLISH == 'true' || env.NPM_TOKEN != ''
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          npm install -g npm@latest >/dev/null   # trusted publishing (OIDC) needs npm >= 11.5.1
+          echo "npm $(npm --version)"
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "auth: NPM_TOKEN secret"
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$HOME/.npmrc"
+          else
+            echo "auth: trusted publishing (OIDC)"
+            [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] || echo "::warning::no OIDC token available: the workflow needs 'permissions: id-token: write'"
+          fi
+          if ! npm publish "$RUNNER_TEMP/$TGZ" --access public --provenance --tag "$DIST_TAG"; then
+            echo "---- npm log (oidc / auth) ----"
+            grep -h -i -E 'oidc|trusted|auth|token' "$HOME"/.npm/_logs/*.log | tail -n 30 || true
+            echo "::error::npm publish failed. For trusted publishing check npmjs.com -> server-health-tracker -> Settings -> Trusted publishing: owner '${GITHUB_REPOSITORY%%/*}', repository '${GITHUB_REPOSITORY#*/}', workflow 'release.yml', no environment. The GitHub release and manifests are already done; re-run this job after fixing."
+            exit 1
+          fi
