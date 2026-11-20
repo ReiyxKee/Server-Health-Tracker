@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Server Health Tracker</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <div>
+      <p class="eyebrow">Server Health Tracker</p>
+      <h1 id="host">connecting…</h1>
+      <p class="sub" id="platform"></p>
+    </div>
+    <div class="head-right">
+      <span class="pill" id="overall" data-status="unknown"><span class="icon">…</span><span class="label">Connecting</span></span>
+      <p class="sub" id="updated"></p>
+    </div>
+  </header>
+
+  <nav class="tabbar" role="tablist" aria-label="Sections">
+    <button class="notify" id="notify" data-status="ok" type="button" aria-label="Alerts">
+      <span class="icon" aria-hidden="true">✓</span><span id="notify-count">0</span><span class="dot" id="notify-dot" hidden></span>
+    </button>
+    <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
+    <button role="tab" data-tab="ports">Ports <span class="count" id="tab-ports-count"></span></button>
+    <button role="tab" data-tab="services">Services <span class="count" id="tab-services-count"></span></button>
+    <button role="tab" data-tab="alerts">Alerts <span class="count" id="tab-alerts-count"></span></button>
+  </nav>
+
+  <main>
+    <!-- 1 · Overview -->
+    <section class="tabpanel" id="tab-overview" role="tabpanel">
+      <section class="tiles">
+        <article class="tile" id="t-cpu">
+          <h2>CPU</h2><p class="big"><span class="val">–</span><small>%</small></p>
+          <p class="status-line"></p>
+          <svg class="spark" data-chart="cpu" role="img" aria-label="CPU usage over time"></svg>
+        </article>
+        <article class="tile" id="t-mem">
+          <h2>Memory</h2><p class="big"><span class="val">–</span><small>%</small></p>
+          <p class="status-line"></p>
+          <svg class="spark" data-chart="mem" role="img" aria-label="Memory usage over time"></svg>
+        </article>
+        <article class="tile" id="t-load">
+          <h2>Load average</h2><p class="big"><span class="val">–</span></p>
+          <p class="status-line"></p>
+          <p class="detail"></p>
+        </article>
+        <article class="tile" id="t-temp">
+          <h2>Hottest sensor</h2><p class="big"><span class="val">–</span><small>°C</small></p>
+          <p class="status-line"></p>
+          <p class="detail"></p>
+        </article>
+        <article class="tile" id="t-up">
+          <h2>Uptime</h2><p class="big"><span class="val">–</span></p>
+          <p class="status-line" id="swap"></p>
+          <p class="detail" id="svc-count"></p>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Network</h2>
+          <ul class="legend">
+            <li><span class="swatch s1"></span>Download <b id="rx">–</b></li>
+            <li><span class="swatch s2"></span>Upload <b id="tx">–</b></li>
+          </ul>
+        </div>
+        <svg class="chart" data-chart="net" role="img" aria-label="Network throughput over time"></svg>
+        <div class="scroll">
+          <table class="grid compact-table">
+            <thead><tr><th>Interface</th><th class="num">In /s</th><th class="num">Out /s</th><th class="num">Total in</th><th class="num">Total out</th></tr></thead>
+            <tbody id="ifaces"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Storage &amp; mounts</h2>
+        <div class="scroll">
+          <table class="grid">
+            <thead><tr><th>Status</th><th>Mount</th><th>Device</th><th>Type</th><th class="usage-col">Usage</th><th class="num">Used</th><th class="num">Free</th><th class="num">Size</th></tr></thead>
+            <tbody id="disks"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>CPU cores</h2>
+        <ul class="rows cores" id="cores"></ul>
+      </section>
+    </section>
+
+    <!-- 2 · Ports -->
+    <section class="tabpanel" id="tab-ports" role="tabpanel" hidden>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Listening ports <small class="sub" id="ports-age"></small></h2>
+          <div class="tools">
+            <input type="search" id="port-filter" placeholder="Filter…" aria-label="Filter ports">
+            <label class="toggle"><input type="checkbox" id="show-ephemeral" checked> show ephemeral</label>
+          </div>
+        </div>
+        <div class="scroll">
+          <table class="grid">
+            <thead><tr>
+              <th data-sort="status">Status</th><th class="num" data-sort="port">Port</th><th data-sort="name">Name / alias</th>
+              <th data-sort="process">Process</th><th data-sort="unit">Unit</th><th data-sort="bind">Bind</th>
+            </tr></thead>
+            <tbody id="ports"></tbody>
+          </table>
+        </div>
+        <p class="sub hint">📌 pinned stay on top · label and pin from the terminal: <code>sht</code> → <code>/alias 7001 Jellyfin</code>, <code>/pin 7001</code></p>
+      </section>
+    </section>
+
+    <!-- 3 · Services -->
+    <section class="tabpanel" id="tab-services" role="tabpanel" hidden>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Services <small class="sub" id="running-count"></small></h2>
+          <input type="search" id="svc-filter" placeholder="Filter…" aria-label="Filter services">
+        </div>
+        <div class="scroll">
+          <table class="grid" id="services-table">
+            <thead><tr>
+              <th data-sort="status">Status</th><th data-sort="name">Name / alias</th><th class="num" data-sort="cpu">CPU %</th>
+              <th class="num" data-sort="mem">Memory</th><th data-sort="unit">Unit</th><th data-sort="description">Description</th>
+            </tr></thead>
+            <tbody id="services"></tbody>
+          </table>
+        </div>
+        <p class="sub hint">📌 pinned and failed stay on top · CPU and memory come from systemd accounting, refreshed every few seconds while this page is open</p>
+      </section>
+    </section>
+
+    <!-- 4 · Alerts -->
+    <section class="tabpanel" id="tab-alerts" role="tabpanel" hidden>
+      <section class="panel">
+        <h2>Now <small class="sub" id="issues-summary"></small></h2>
+        <ul class="rows issues" id="issues"></ul>
+      </section>
+      <section class="panel">
+        <h2>History <small class="sub">status changes detected by the daemon</small></h2>
+        <ul class="rows compact" id="alerts"></ul>
+      </section>
+    </section>
+  </main>
+
+  <div class="tooltip" id="tip" hidden></div>
+  <script src="/app.js"></script>
+</body>
+</html>

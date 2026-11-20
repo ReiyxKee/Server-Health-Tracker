@@ -1,0 +1,52 @@
+{
+  "host": "69.0.0.1",
+  "port": 7002,
+  "expectedMounts": [
+    "/",
+    "/mnt/onetouch",
+    "/mnt/nextcloud"
+  ],
+  "aliases": {
+    "tcp/22": "SSH",
+    "tcp/53": "dnsmasq (DNS)",
+    "udp/53": "dnsmasq (DNS)",
+    "tcp/80": "nginx (file.reiyx.com)",
+    "tcp/139": "Samba (NetBIOS)",
+    "tcp/445": "Samba",
+    "udp/6969": "OpenVPN",
+    "tcp/7000": "Nextcloud",
+    "tcp/7001": "Jellyfin",
+    "tcp/7002": "sht dashboard",
+    "tcp/7003": "pm2 backend",
+    "tcp/7004": "pm2 frontend",
+    "tcp/8000": "MongoDB",
+    "tcp/11434": "Ollama",
+    "tcp/22000": "minecraft-server",
+    "tcp/22001": "cumcooler-minecraft-server",
+    "unit:snap.docker.dockerd": "Docker",
+    "unit:snap.nextcloud.apache": "Nextcloud web",
+    "unit:snap.nextcloud.mysql": "Nextcloud database",
+    "unit:snap.nextcloud.php-fpm": "Nextcloud PHP",
+    "unit:openvpn@server": "OpenVPN",
+    "unit:pm2-reiyx": "pm2 apps",
+    "unit:mongod": "MongoDB",
+    "proc:docker-proxy": "Docker port proxy",
+    "proc:jellyfin": "Jellyfin server"
+  },
+  "pinned": [
+    "tcp/7001",
+    "tcp/7000",
+    "udp/6969",
+    "tcp/80",
+    "tcp/445",
+    "tcp/22",
+    "tcp/53",
+    "tcp/7003",
+    "tcp/7004",
+    "tcp/8000",
+    "unit:snap.nextcloud.mysql",
+    "unit:snap.nextcloud.php-fpm",
+    "unit:nmbd",
+    "proc:jellyfin"
+  ]
+}

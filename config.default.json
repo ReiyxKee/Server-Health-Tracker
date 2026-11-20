@@ -1,0 +1,23 @@
+{
+  "host": "127.0.0.1",
+  "port": 7002,
+  "web": true,
+  "sampleMs": 2000,
+  "diskMs": 10000,
+  "serviceMs": 30000,
+  "historyPoints": 300,
+  "serviceUsage": true,
+  "serviceUsageMs": 5000,
+  "expectedMounts": ["/"],
+  "aliases": {},
+  "pinned": [],
+  "ignorePorts": [],
+  "thresholds": {
+    "cpu": [80, 95],
+    "memory": [85, 95],
+    "swap": [50, 80],
+    "disk": [85, 95],
+    "temp": [80, 95],
+    "load": [1.5, 3]
+  }
+}

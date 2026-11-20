@@ -1,0 +1,44 @@
+{
+  "name": "server-health-tracker",
+  "version": "0.1.0",
+  "description": "Lightweight Linux server health tracker: CPU, memory, storage, mounts, temperatures, services and listening ports. CLI (sht) plus an optional daemon and web dashboard. Zero dependencies.",
+  "bin": {
+    "sht": "bin/sht.js"
+  },
+  "main": "lib/collector.js",
+  "files": [
+    "bin/",
+    "lib/",
+    "public/",
+    "config.default.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "node bin/sht.js serve --config reigen.config.json",
+    "ui": "node bin/sht.js --config reigen.config.json",
+    "status": "node bin/sht.js status",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18.15"
+  },
+  "os": [
+    "linux"
+  ],
+  "keywords": [
+    "monitoring",
+    "health",
+    "server",
+    "linux",
+    "systemd",
+    "dashboard",
+    "cli",
+    "ports",
+    "disk",
+    "cpu",
+    "memory"
+  ],
+  "author": "Reiyx",
+  "license": "MIT"
+}

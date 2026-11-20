@@ -1,0 +1,1 @@
+{ "port": 7999, "thresholds": { "cpu": [50, 90] } }
