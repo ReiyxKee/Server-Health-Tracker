@@ -55,9 +55,10 @@ service doesn't depend on npm, nvm or the source checkout. It installs:
 - `/etc/sht/config.json` (the config)
 - `sht.service` (enabled at boot)
 
-The service runs as an unprivileged `DynamicUser` with a read-only filesystem.
-Its only capabilities are `CAP_SYS_PTRACE` + `CAP_DAC_READ_SEARCH`, which it needs
-to see which process owns a socket. If it binds to a VPN address before the
+The service runs as the unprivileged system user `sht` with a read-only view of
+the system, except `/etc/sht`, where it saves pins and aliases made in the web
+dashboard. Its only capabilities are `CAP_SYS_PTRACE` + `CAP_DAC_READ_SEARCH`,
+which it needs to see which process owns a socket. If it binds to a VPN address before the
 tunnel is up, it retries until the address exists.
 
 Firewall rules that sht adds are recorded in `/etc/sht/firewall.json`.
@@ -143,6 +144,30 @@ The daemon watches its config file, so aliases, pins, poll rate, thresholds,
 - `thresholds` are `[warn, crit]` in %, except temp (°C) and load (per core, 5-minute average).
 - `expectedMounts` are critical when not mounted.
 
+## Pinning & renaming from the web
+
+Viewing the dashboard needs no sign-in. **Changing** pins and aliases needs an
+account:
+
+```sh
+sht user add reiyx        # asks for a password (min. 8 characters); sudo when installed
+sht user list
+sht user passwd reiyx     # change the password, which also signs that user out everywhere
+sht user remove reiyx     # remove the account and end its sessions
+```
+
+In the dashboard, click **🔒 Sign in to edit**. Each row in Ports and Services
+then has 📌 (pin/unpin) and ✎ (rename). Edits go into the same config file the
+CLI uses, so `sht`, alerts and every browser see them immediately.
+
+- Passwords are stored only as salted scrypt hashes in `users.json` next to the
+  config. That file is mode 0600 and readable only by the service.
+- A session lasts 12 hours in an `HttpOnly`, `SameSite=Strict` cookie. Requests
+  from other websites are refused.
+- Ten failed sign-ins from one address lock it out for a minute.
+- The `sht` command itself never asks for these passwords. In the terminal, Linux
+  permissions (sudo) decide who may change things.
+
 ## API
 
 | Endpoint | |
@@ -151,6 +176,9 @@ The daemon watches its config file, so aliases, pins, poll rate, thresholds,
 | `GET /api/health` | latest snapshot |
 | `GET /api/history` | `{t, cpu, mem, rx, tx}` ring buffer |
 | `GET /api/alerts` | status changes since start |
+| `GET /api/session` | `{user, accounts}`: who is signed in |
+| `POST /api/login` / `POST /api/logout` | `{user, password}` sets or clears the session cookie |
+| `POST /api/edit` | `{action: pin\|unpin\|alias\|unalias, key, alias?}`, needs a signed-in session |
 
 ## Development
 

@@ -191,7 +191,7 @@ function renderPorts() {
     return `<tr class="${p.listening ? '' : 'gone'} ${order.has(p.key) ? 'pinned' : ''}">
       <td>${statusCell(p.status, p.listening ? 'listening' : 'stopped')}</td>
       <td class="num">${p.port}<span class="muted">/${p.proto}</span></td>
-      <td>${order.has(p.key) ? '📌 ' : ''}${p.alias ? `<span class="alias">${esc(p.alias)}</span>` : esc(p.name || '—')}${p.guessed ? ' <span class="muted">(guess)</span>' : ''}</td>
+      <td>${editButtons(p.key, order.has(p.key), p.alias)}${order.has(p.key) ? '📌 ' : ''}${p.alias ? `<span class="alias">${esc(p.alias)}</span>` : esc(p.name || '—')}${p.guessed ? ' <span class="muted">(guess)</span>' : ''}</td>
       <td>${proc}</td>
       <td>${esc(o?.unit || '')}</td>
       <td class="bind">${esc(p.addresses.join(', '))}</td>
@@ -208,13 +208,15 @@ function renderServicesTable() {
   for (const p of pinnedUnits) items.push({ name: p.target, alias: p.alias, state: p.state, status: p.status, description: p.detail });
   for (const f of sv.failed) if (!order.has(f.name)) items.push({ name: f.name, alias: f.alias, state: 'failed', status: 'crit', description: f.description });
   for (const r of sv.running) if (!order.has(r.name)) items.push({ name: r.name, alias: r.alias, state: 'running', status: 'ok', description: r.description, kind: r.kind });
+  const pinnedKeys = new Set((sv.pinned || []).map((p) => p.key));
+  for (const i of items) i.key = i.kind === 'container' ? `proc:${i.name.replace(/^docker:/, '')}` : `unit:${i.name}`;
   const q = $('#svc-filter').value.trim().toLowerCase();
   const list = items.filter((i) => !q || [i.name, i.alias || '', i.description || ''].some((x) => x.toLowerCase().includes(q)));
   const get = (i, k) => ({
     status: RANK[i.status], name: (i.alias || i.name).toLowerCase(), cpu: units[i.name]?.[0] ?? null,
     mem: units[i.name]?.[1] ?? null, unit: i.name, description: i.description || '',
   }[k]);
-  sortRows(list, sorts.services, get, (i) => (order.has(i.name) ? 0 : 1));
+  sortRows(list, sorts.services, get, (i) => (order.has(i.name) || pinnedKeys.has(i.key) ? 0 : 1));
   markSort($('#services-table'), 'services');
   const total = Object.values(units).reduce((n, u) => n + u[0], 0);
   $('#running-count').textContent = `${sv.running.length} running · ${sv.failed.length} failed · ${total.toFixed(1)}% CPU in services`;
@@ -222,9 +224,9 @@ function renderServicesTable() {
   $('#tab-services-count').textContent = sv.running.length;
   $('#services').innerHTML = list.map((i) => {
     const u = units[i.name];
-    return `<tr class="${order.has(i.name) ? 'pinned' : ''}">
+    return `<tr class="${order.has(i.name) || pinnedKeys.has(i.key) ? 'pinned' : ''}">
       <td>${statusCell(i.status, i.state)}</td>
-      <td>${order.has(i.name) ? '📌 ' : ''}${i.alias ? `<span class="alias">${esc(i.alias)}</span>` : esc(i.name)}</td>
+      <td>${editButtons(i.key, pinnedKeys.has(i.key), i.alias)}${pinnedKeys.has(i.key) ? '📌 ' : ''}${i.alias ? `<span class="alias">${esc(i.alias)}</span>` : esc(i.name)}</td>
       <td class="num">${u ? u[0].toFixed(1) : '<span class="muted">—</span>'}</td>
       <td class="num">${u ? bytes(u[1]) : '<span class="muted">—</span>'}</td>
       <td class="muted">${esc(i.kind === 'container' ? `${i.name} (container)` : i.name)}</td>
@@ -291,6 +293,85 @@ function renderAlerts() {
     ? alerts.slice().reverse().map((a) => `<li class="alert-row"><time>${new Date(a.t).toLocaleString()}</time>${badge(a.to)}<span><b>${esc(a.check)}</b> ${esc(a.from)} → ${esc(a.to)}</span></li>`).join('')
     : '<li class="sub">No status changes since the daemon started.</li>';
 }
+
+
+// ---------- editing (pin / alias): sign in with a server account (sht user add <name>) ----------
+let signedIn = null;   // username while signed in (session cookie is HttpOnly, the page never sees it)
+let hasAccounts = true;
+function setUnlocked(user) {
+  signedIn = user;
+  document.body.classList.toggle('unlocked', !!user);
+  const b = $('#lock');
+  b.dataset.unlocked = String(!!user);
+  b.textContent = user ? `👤 ${user} · Sign out` : '🔒 Sign in to edit';
+}
+function editButtons(key, pinned, alias) {
+  return `<button class="edit-btn" type="button" data-act="${pinned ? 'unpin' : 'pin'}" data-key="${esc(key)}" aria-pressed="${pinned}" title="${pinned ? 'Unpin' : 'Pin to top and alert when it goes down'}">📌</button>`
+    + `<button class="edit-btn" type="button" data-act="alias" data-key="${esc(key)}" data-alias="${esc(alias || '')}" title="Rename (alias)">✎</button>`;
+}
+let toastTimer = null;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2500);
+}
+async function api(path, body, method = 'POST') {
+  const res = await fetch(path, {
+    method, credentials: 'same-origin',
+    headers: method === 'POST' ? { 'content-type': 'application/json' } : {},
+    body: method === 'POST' ? JSON.stringify(body || {}) : undefined,
+  });
+  let data = {}; try { data = await res.json(); } catch { /* empty */ }
+  if (!res.ok) { const e = new Error(data.error || `HTTP ${res.status}`); e.status = res.status; throw e; }
+  return data;
+}
+async function edit(change) {
+  try {
+    await api('/api/edit', change);
+    toast({ pin: '📌 pinned', unpin: 'unpinned', alias: change.alias ? `renamed to “${change.alias}”` : 'alias removed' }[change.action] || 'saved');
+  } catch (e) {
+    if (e.status === 401) { setUnlocked(null); openSignIn('Your session ended. Sign in again.'); }
+    else toast(`⚠ ${e.message}`);
+  }
+}
+function openSignIn(err) {
+  $('#no-accounts').hidden = hasAccounts;
+  $('#unlock-error').hidden = !err; $('#unlock-error').textContent = err || '';
+  $('#password-input').value = '';
+  $('#unlock-dialog').showModal();
+  $(hasAccounts && $('#user-input').value ? '#password-input' : '#user-input').focus?.();
+}
+$('#lock').addEventListener('click', async () => {
+  if (!signedIn) return openSignIn();
+  try { await api('/api/logout'); } catch { /* ignore */ }
+  setUnlocked(null);
+  toast('signed out');
+});
+$('#unlock-cancel').addEventListener('click', () => $('#unlock-dialog').close());
+$('#unlock-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const r = await api('/api/login', { user: $('#user-input').value.trim(), password: $('#password-input').value });
+    $('#password-input').value = '';
+    setUnlocked(r.user);
+    $('#unlock-dialog').close();
+    toast(`🔓 signed in as ${r.user}`);
+  } catch (err) {
+    $('#password-input').value = '';
+    $('#unlock-error').hidden = false;
+    $('#unlock-error').textContent = err.message;
+  }
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.edit-btn'); if (!b) return;
+  if (!signedIn) return openSignIn();
+  const key = b.dataset.key;
+  if (b.dataset.act === 'alias') {
+    const name = window.prompt(`Name for ${key} (empty removes the alias):`, b.dataset.alias || '');
+    if (name === null) return;
+    edit({ action: 'alias', key, alias: name.trim() });
+  } else edit({ action: b.dataset.act, key });
+});
+api('/api/session', null, 'GET').then((r) => { hasAccounts = r.accounts; setUnlocked(r.user); }).catch(() => setUnlocked(null));
 
 // ---------- tabs (state kept in the URL hash, e.g. #ports) ----------
 const TABS = ['overview', 'ports', 'services', 'alerts'];

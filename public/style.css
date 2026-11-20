@@ -184,3 +184,22 @@ tr.pinned td:first-child { box-shadow: inset 3px 0 0 var(--s1); }
 .level.crit { background: var(--crit); color: #fff; }
 .level.warn { background: var(--warn); color: #0b0b0b; }
 @media (max-width: 600px) { .tabbar { padding: 8px 16px; } .tabbar [role="tab"] { padding: 8px 10px; } }
+
+/* --- editing --- */
+.tabbar .spacer { flex: 1; }
+.lock { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.lock[data-unlocked="true"] { color: var(--ink); border-color: var(--s1); }
+.edit-btn { font: inherit; font-size: 13px; line-height: 1; padding: 3px 5px; margin-right: 4px; border-radius: 6px; border: 1px solid transparent; background: none; cursor: pointer; opacity: .45; }
+.edit-btn:hover { opacity: 1; border-color: var(--border); }
+.edit-btn[aria-pressed="true"] { opacity: 1; }
+body:not(.unlocked) .edit-btn { display: none; }
+dialog { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--ink); max-width: 420px; width: calc(100% - 32px); padding: 20px; }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+dialog h2 { text-transform: none; letter-spacing: 0; font-size: 16px; color: var(--ink); }
+dialog input { width: 100%; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--page); color: var(--ink); margin-top: 8px; }
+dialog pre { margin: 8px 0; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.dialog-actions button { font: inherit; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--page); color: var(--ink); cursor: pointer; }
+.dialog-actions .primary { background: var(--s1); border-color: var(--s1); color: #fff; }
+.error { color: var(--crit); }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 20; background: var(--ink); color: var(--page); padding: 8px 14px; border-radius: 8px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.25); }

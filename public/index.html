@@ -27,7 +27,25 @@
     <button role="tab" data-tab="ports">Ports <span class="count" id="tab-ports-count"></span></button>
     <button role="tab" data-tab="services">Services <span class="count" id="tab-services-count"></span></button>
     <button role="tab" data-tab="alerts">Alerts <span class="count" id="tab-alerts-count"></span></button>
+    <span class="spacer"></span>
+    <button class="lock" id="lock" type="button" data-unlocked="false">🔒 Sign in to edit</button>
   </nav>
+
+  <dialog id="unlock-dialog">
+    <form method="dialog" id="unlock-form">
+      <h2>Sign in to edit</h2>
+      <p class="sub">Pinning and renaming change the server's config for everyone. Viewing needs no sign-in.</p>
+      <p class="sub" id="no-accounts" hidden>No accounts yet. On the server run <code>sht user add &lt;name&gt;</code>.</p>
+      <input type="text" id="user-input" autocomplete="username" placeholder="username" aria-label="Username" required>
+      <input type="password" id="password-input" autocomplete="current-password" placeholder="password" aria-label="Password" required>
+      <p class="sub error" id="unlock-error" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" id="unlock-cancel">Cancel</button>
+        <button type="submit" class="primary">Sign in</button>
+      </div>
+    </form>
+  </dialog>
+  <div class="toast" id="toast" hidden></div>
 
   <main>
     <!-- 1 · Overview -->
@@ -112,7 +130,7 @@
             <tbody id="ports"></tbody>
           </table>
         </div>
-        <p class="sub hint">📌 pinned stay on top · label and pin from the terminal: <code>sht</code> → <code>/alias 7001 Jellyfin</code>, <code>/pin 7001</code></p>
+        <p class="sub hint">📌 pinned stay on top · sign in to pin and rename here, or use the terminal: <code>sht pin 7001</code>, <code>sht alias 7001 Jellyfin</code></p>
       </section>
     </section>
 
@@ -132,7 +150,7 @@
             <tbody id="services"></tbody>
           </table>
         </div>
-        <p class="sub hint">📌 pinned and failed stay on top · CPU and memory come from systemd accounting, refreshed every few seconds while this page is open</p>
+        <p class="sub hint">📌 pinned and failed stay on top · sign in to pin and rename · CPU and memory come from systemd accounting, refreshed every few seconds while this page is open</p>
       </section>
     </section>
 

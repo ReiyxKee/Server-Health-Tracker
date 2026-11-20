@@ -58,3 +58,18 @@ test('sht status --json --local returns a full snapshot', () => {
   assert.ok(s.disks.list.some((d) => d.mount === '/'));
   assert.ok(Array.isArray(s.services.ports) && Array.isArray(s.services.pinned));
 });
+
+test('web accounts: scrypt hashes, sign-in checks, edits validated', async () => {
+  const U = require('../lib/users');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sht-u-'));
+  const file = path.join(dir, 'users.json');
+  U.writeUsers(file, { alice: { hash: await U.hashPassword('long enough'), changed: Date.now() } });
+  assert.strictEqual(fs.statSync(file).mode & 0o777, 0o600);
+  assert.ok(!fs.readFileSync(file, 'utf8').includes('long enough'));
+  assert.strictEqual((await U.checkLogin(file, 'alice', 'long enough')).name, 'alice');
+  assert.strictEqual(await U.checkLogin(file, 'alice', 'wrong'), null);
+  assert.strictEqual(await U.checkLogin(file, 'bob', 'long enough'), null);
+  assert.strictEqual(await U.checkLogin(file, '__proto__', 'x'), null);
+  assert.throws(() => C.applyEdit({}, { action: 'pin', key: 'unit:../etc' }), /invalid target/);
+  assert.deepStrictEqual(C.applyEdit({}, { action: 'pin', key: 'tcp/7001', alias: 'Jelly\u0007fin' }), { aliases: { 'tcp/7001': 'Jellyfin' }, pinned: ['tcp/7001'] });
+});
