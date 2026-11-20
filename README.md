@@ -160,3 +160,42 @@ node bin/sht.js --config reigen.config.json         # UI against it
 npm test
 npm pack --dry-run
 ```
+
+## Releases & channels
+
+| Channel | How you get it | Who it's for |
+|---|---|---|
+| **Stable** (default) | `npm i -g server-health-tracker` · GitHub "Latest release" · `manifest.json` | everyone |
+| **Experimental** | `npm i -g server-health-tracker@experimental` · GitHub pre-releases · `manifest-experimental.json` | early testers, at their own risk |
+| **Dev build** | Actions → Build → a run → Artifacts (kept 7 days), then `npm i -g ./server-health-tracker-*-dev.N.tgz` | development |
+
+Releases are made by pushing a tag. `.github/workflows/release.yml` tests, packs,
+creates the GitHub Release, publishes to npm (when enabled) and updates the
+manifests:
+
+```sh
+git tag v0.2.0       && git push origin v0.2.0         # stable
+git tag v0.3.0-exp.1 && git push origin v0.3.0-exp.1   # experimental (-beta.N / -dev.N work too)
+```
+
+In npm/semver order `0.3.0-exp.1` comes *before* `0.3.0`, so name experiments
+after the version they lead up to. The manifests list the 20 newest releases,
+each with download URL, sha256 and changelog.
+
+### Publishing to npm (one-time setup)
+
+1. Create an npmjs.com account with two-factor auth, then `npm login`.
+2. Publish the first version by hand (trusted publishing can only be set up on an
+   existing package): `npm publish --access public`.
+3. On npmjs.com, go to the package → **Settings** → **Trusted publishing** → GitHub
+   Actions. Enter your GitHub user, the repository name and workflow `release.yml`.
+4. In the GitHub repo, go to **Settings** → **Secrets and variables** → **Actions** →
+   **Variables** and add `NPM_PUBLISH` = `true`.
+
+From then on every tag publishes automatically with provenance, and no token is
+stored anywhere. Alternative: add a granular npm token as the `NPM_TOKEN` secret
+instead of steps 3 and 4. Granular tokens expire, so you'd need to renew it.
+
+## License
+
+[MIT](LICENSE): free and open source. Use, modify and share it.

@@ -1,0 +1,9 @@
+{
+  "name": "server-health-tracker",
+  "description": "Lightweight Linux server health tracker: CPU, memory, storage, mounts, temperatures, services and listening ports. CLI (sht) plus an optional daemon and web dashboard. Zero dependencies.",
+  "channel": "stable",
+  "homepage": null,
+  "latest": null,
+  "updated": null,
+  "versions": []
+}

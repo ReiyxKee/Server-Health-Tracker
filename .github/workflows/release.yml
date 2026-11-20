@@ -1,0 +1,124 @@
+# Push a tag to release:
+#   git tag v0.2.0 && git push origin v0.2.0
+# This runs the tests, packs the npm tarball, publishes a GitHub Release with it, publishes to npm
+# (when enabled, see the "Publish to npm" step) and adds the version to the channel manifest(s) on
+# the default branch.
+#
+# Users always get stable by default (npm "latest", GitHub "Latest release", manifest.json).
+# Experimental builds are opt-in, at the user's own risk: npm i -g server-health-tracker@experimental
+#
+# Channels (same model as Movie Curator):
+#   v0.2.0         stable        -> npm "latest",       added to manifest.json and manifest-experimental.json
+#   v0.2.0-exp.3   experimental  -> npm "experimental", GitHub pre-release, manifest-experimental.json only
+#                  (-beta.N and -dev.N work the same; the number must be >= 1)
+#   npm/semver note: 0.2.0-exp.3 sorts BEFORE 0.2.0, so name experiments after the version they lead up to.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write   # GitHub Release + manifest commit
+  id-token: write   # npm provenance
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history: the changelog lists the commits since the previous tag
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Version from tag
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          case "$v" in
+            *-*)
+              n="${v##*[!0-9]}"
+              if [ -z "$n" ] || [ "$n" = "0" ]; then echo "::error::Experimental tags need a number >= 1, e.g. v0.2.0-exp.1"; exit 1; fi
+              ch=experimental; dist=experimental;;
+            *) ch=stable; dist=latest;;
+          esac
+          if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Use three numbers, e.g. v0.2.0 or v0.2.0-exp.1"; exit 1
+          fi
+          npm version "$v" --no-git-tag-version --allow-same-version
+          # npm provenance needs repository.url to match this GitHub repo
+          if [ -z "$(npm pkg get repository.url | tr -d '{}"')" ]; then
+            npm pkg set repository.type=git "repository.url=git+https://github.com/${GITHUB_REPOSITORY}.git" \
+              "homepage=https://github.com/${GITHUB_REPOSITORY}#readme" "bugs.url=https://github.com/${GITHUB_REPOSITORY}/issues"
+          fi
+          echo "VERSION=$v" >> "$GITHUB_ENV"
+          echo "CHANNEL=$ch" >> "$GITHUB_ENV"
+          echo "DIST_TAG=$dist" >> "$GITHUB_ENV"
+          echo "Releasing $v on the $ch channel"
+
+      - name: Test
+        run: npm test
+
+      - name: Pack
+        run: echo "TGZ=$(npm pack --silent | tail -n 1)" >> "$GITHUB_ENV"
+
+      - name: Changelog
+        run: |
+          prev=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          git log --no-merges --pretty='%s' ${prev:+$prev..}"$GITHUB_REF_NAME" \
+            | grep -v -E '^(manifest|release):' | sed 's/^/- /' | head -n 30 > notes.md || true
+          [ -s notes.md ] || echo "- Release" > notes.md
+          cat notes.md
+
+      - name: GitHub Release
+        run: |
+          {
+            cat notes.md
+            echo
+            echo "### Install"
+            echo '```sh'
+            echo "npm install -g server-health-tracker@${VERSION}"
+            echo 'sudo "$(which node)" "$(which sht)" install'
+            echo '```'
+            echo "sha256 \`$(sha256sum "$TGZ" | cut -d' ' -f1)\`"
+          } > release.md
+          gh release create "$GITHUB_REF_NAME" "$TGZ" --title "sht ${VERSION}" --notes-file release.md \
+            $([ "$CHANNEL" = experimental ] && echo --prerelease)
+
+      # Publishing is opt-in: set the repository variable NPM_PUBLISH=true (trusted publishing, no token)
+      # or add an NPM_TOKEN secret. Without either, this step is skipped and only GitHub gets the release.
+      - name: Publish to npm
+        if: vars.NPM_PUBLISH == 'true' || env.NPM_TOKEN != ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm install -g npm@latest   # trusted publishing (OIDC) needs npm >= 11.5.1
+          npm publish "$TGZ" --access public --provenance --tag "$DIST_TAG"
+
+      - name: Update the channel manifest(s) on the default branch
+        run: |
+          cp notes.md "$TGZ" "$RUNNER_TEMP/"
+          git fetch origin "$DEFAULT_BRANCH"
+          git checkout -B "$DEFAULT_BRANCH" "origin/$DEFAULT_BRANCH"
+          node scripts/update-manifest.js "$VERSION" "$GITHUB_REF_NAME" "$CHANNEL" \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${TGZ}" \
+            "$RUNNER_TEMP/$TGZ" "$RUNNER_TEMP/notes.md"
+          if [ "$CHANNEL" = stable ]; then
+            npm version "$VERSION" --no-git-tag-version --allow-same-version   # keep package.json at the latest stable
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json manifest-experimental.json package.json
+          git commit -m "manifest: ${GITHUB_REF_NAME} (${CHANNEL})" || { echo "manifest unchanged"; exit 0; }
+          git push origin "HEAD:$DEFAULT_BRANCH"

@@ -1,0 +1,40 @@
+# Dev build on every push / pull request (no release is made).
+# Runs the tests and keeps an installable tarball for 7 days:
+#   Actions -> Build -> run -> Artifacts -> download, unzip, then
+#   npm install -g ./server-health-tracker-<version>-dev.<run>.tgz
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [18, 22]   # oldest supported (engines >=18.15) and current LTS
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Test
+        run: npm test
+
+      - name: Dev version
+        if: matrix.node == 22
+        run: |
+          base=$(node -p "require('./package.json').version.split('-')[0]")
+          npm version "${base}-dev.${GITHUB_RUN_NUMBER}" --no-git-tag-version
+          echo "TGZ=$(npm pack --silent | tail -n 1)" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.node == 22
+        with:
+          name: sht-dev-${{ github.run_number }}
+          path: ${{ env.TGZ }}
+          retention-days: 7
