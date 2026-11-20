@@ -1,6 +1,6 @@
 {
   "name": "server-health-tracker",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Lightweight Linux server health tracker: CPU, memory, storage, mounts, temperatures, services and listening ports. CLI (sht) plus an optional daemon and web dashboard. Zero dependencies.",
   "bin": {
     "sht": "bin/sht.js"
@@ -40,5 +40,13 @@
     "memory"
   ],
   "author": "Reiyx",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ReiyxKee/Server-Health-Tracker.git"
+  },
+  "homepage": "https://github.com/ReiyxKee/Server-Health-Tracker#readme",
+  "bugs": {
+    "url": "https://github.com/ReiyxKee/Server-Health-Tracker/issues"
+  }
 }
